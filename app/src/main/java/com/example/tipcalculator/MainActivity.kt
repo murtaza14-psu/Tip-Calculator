@@ -3,18 +3,26 @@ package com.example.tipcalculator
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -29,6 +37,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.focusModifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 
 class MainActivity : ComponentActivity() {
@@ -64,15 +74,20 @@ fun TipCalculatorLayout(){
     // monitors
 
     var amountInput by remember { mutableStateOf("") }
+    var tipInput by remember { mutableStateOf("") }
+    var roundUp by remember { mutableStateOf(false)}
+
     // ?: is the elvis operator that returns the before expression when the value is not null
     //and returns the expression after if the value is null.
     val amount = amountInput.toDoubleOrNull()?:0.0
-    val tip = calculateTip(amount)
+    val tipPercent = tipInput.toDoubleOrNull()?:0.0
+    val tip = calculateTip(amount, tipPercent, roundUp)
     Column(
         modifier = Modifier
             .statusBarsPadding()
             .padding(horizontal = 35.dp)
-            .safeDrawingPadding(),
+            .safeDrawingPadding()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -82,16 +97,39 @@ fun TipCalculatorLayout(){
                 .padding(bottom = 16.dp, top = 40.dp)
                 .align(alignment = Alignment.Start)
         )
-        EditNumberField(value = amountInput,
+        EditNumberField(
+            label = R.string.bill_amount,
+            keyboardOptions = KeyboardOptions.Default.copy(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Next),
+            value = amountInput,
             onValueChange = {amountInput=it},
             modifier = Modifier
-            .padding(bottom = 32.dp)
-            .fillMaxWidth())
+                .padding(bottom = 32.dp)
+                .fillMaxWidth())
+
+        EditNumberField(
+            label = R.string.how_was_the_service,
+            keyboardOptions = KeyboardOptions.Default.copy(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done),
+            value = tipInput,
+            onValueChange = {tipInput=it},
+            modifier = Modifier
+                .padding(bottom = 32.dp)
+                .fillMaxWidth())
+
+        RoundTip(roundUP = roundUp,
+            onRoundupChanged ={roundUp = it},
+            modifier = Modifier.padding(bottom = 32.dp))
+
         Text(
             text = stringResource(id = R.string.tip_amount, tip),
             style = MaterialTheme.typography.displaySmall
         )
         Spacer(modifier = Modifier.height(150.dp))
+
+
 
     }
 }
@@ -118,6 +156,8 @@ typed so far!
  */
 @Composable
 fun EditNumberField(
+    @StringRes label : Int,
+    keyboardOptions: KeyboardOptions,
     value: String,
     //accepts a string value and returns nothing
     onValueChange: (String)->Unit,
@@ -125,19 +165,47 @@ fun EditNumberField(
 
     TextField(value = value,
         onValueChange =onValueChange,
-        label = { Text(text = stringResource(id = R.string.bill_amount))},
+        label = { Text(text = stringResource(label))},
         //keyboard options lets us specify what kind of keyboard to display when clicked on textfield
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        //also the bellow code adds a next button in the bottom right of keyboard
+        keyboardOptions = keyboardOptions,
         //single line property wraps the text into a horizontally scrollable single line.
         singleLine = true,
         modifier=modifier
         )
 }
+
+@Composable
+fun RoundTip(
+    roundUP:Boolean,
+    onRoundupChanged:(Boolean)->Unit,
+    modifier: Modifier=Modifier
+){
+    Row(modifier= modifier
+        .fillMaxWidth()
+        .size(48.dp),
+        verticalAlignment = Alignment.CenterVertically)
+    {
+        Text(text = stringResource(id = R.string.round_up_tip))
+
+        Switch(modifier = modifier
+            .fillMaxWidth()
+            .wrapContentWidth(Alignment.End),
+            checked = roundUP,
+            onCheckedChange = onRoundupChanged )
+
+    }
+}
 /*There are two parameters.  amount that accepts a double value and
 * tip percent that accepts a double value and if nothin is passed it ets the
 * the value automaticLLY to 15. */
-private fun calculateTip(amount: Double, tipPercent:Double = 15.0):String{
-    val tip = tipPercent / 100 * amount
+private fun calculateTip(amount: Double,
+                         tipPercent:Double = 15.0,
+                         roundUP: Boolean):String{
+    var tip = tipPercent / 100 * amount
+    if (roundUP){
+        tip = kotlin.math.ceil(tip)
+    }
     return NumberFormat.getCurrencyInstance().format(tip)
 //this line converts the currency into the format according to location of
 // the device and returns as a string
